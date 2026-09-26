@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Konfrans Qeydiyyatı</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    background: #f2f4f7;
+    margin: 0;
+    padding: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: 100vh;
+  }
+  .card {
+    background: #fff;
+    max-width: 480px;
+    width: 100%;
+    padding: 32px 28px;
+    border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    margin-top: 30px;
+  }
+  h1 {
+    font-size: 22px;
+    margin-bottom: 6px;
+    color: #1a1a1a;
+  }
+  p.subtitle {
+    color: #667085;
+    margin-top: 0;
+    margin-bottom: 24px;
+    font-size: 14px;
+  }
+  label {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 6px;
+    margin-top: 16px;
+    color: #344054;
+  }
+  input, select {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1px solid #d0d5dd;
+    border-radius: 10px;
+    font-size: 15px;
+    outline: none;
+  }
+  input:focus, select:focus {
+    border-color: #6941c6;
+  }
+  .price-box {
+    margin-top: 20px;
+    padding: 16px;
+    background: #f4f0fe;
+    border-radius: 10px;
+    text-align: center;
+    font-size: 18px;
+    font-weight: 700;
+    color: #6941c6;
+  }
+  button {
+    margin-top: 24px;
+    width: 100%;
+    padding: 14px;
+    background: #6941c6;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button:disabled {
+    background: #b0a3d9;
+    cursor: not-allowed;
+  }
+  .message {
+    margin-top: 16px;
+    padding: 12px;
+    border-radius: 10px;
+    font-size: 14px;
+    display: none;
+  }
+  .message.success {
+    background: #ecfdf3;
+    color: #027a48;
+    display: block;
+  }
+  .message.error {
+    background: #fef3f2;
+    color: #b42318;
+    display: block;
+  }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <h1>Konfrans Qeydiyyatı</h1>
+  <p class="subtitle">Zəhmət olmasa, məlumatlarınızı doldurub paketinizi seçin.</p>
+
+  <form id="regForm">
+    <label>Ad</label>
+    <input type="text" id="firstName" required placeholder="Adınız">
+
+    <label>Soyad</label>
+    <input type="text" id="lastName" required placeholder="Soyadınız">
+
+    <label>Telefon nömrəsi</label>
+    <input type="tel" id="phone" required placeholder="+994 XX XXX XX XX">
+
+    <label>E-mail</label>
+    <input type="email" id="email" required placeholder="[email protected]">
+
+    <label>Paket seçimi</label>
+    <select id="package" required>
+      <option value="" disabled selected>Paket seçin</option>
+      <option value="Yalnız konfrans" data-price="130">Yalnız konfransda iştirak — 130 AZN</option>
+      <option value="Konfrans + Otel" data-price="350">Konfrans + Spring Hotel (1 gecə) — 350 AZN</option>
+    </select>
+
+    <div class="price-box" id="priceBox" style="display:none;"></div>
+
+    <button type="submit" id="submitBtn">Qeydiyyatı tamamla</button>
+
+    <div class="message" id="msg"></div>
+  </form>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+  // ---- SUPABASE QOŞULMASI ----
+  const SUPABASE_URL = "https://hygxxmgvegjwkrrqvqmg.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh5Z3h4bWd2ZWdqd2tycnF2cW1nIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA0MTEzODYsImV4cCI6MjEwNTk4NzM4Nn0.0_1jydvXlBr0_mZZ-ZP2uaXkcaKh1f_UYY9awQcASe8";
+  const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  const packageSelect = document.getElementById("package");
+  const priceBox = document.getElementById("priceBox");
+  const form = document.getElementById("regForm");
+  const msg = document.getElementById("msg");
+  const submitBtn = document.getElementById("submitBtn");
+
+  packageSelect.addEventListener("change", () => {
+    const selected = packageSelect.options[packageSelect.selectedIndex];
+    const price = selected.getAttribute("data-price");
+    priceBox.style.display = "block";
+    priceBox.textContent = "Qiymət: " + price + " AZN";
+  });
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    msg.className = "message";
+    msg.style.display = "none";
+
+    const firstName = document.getElementById("firstName").value.trim();
+    const lastName = document.getElementById("lastName").value.trim();
+    const phone = document.getElementById("phone").value.trim();
+    const email = document.getElementById("email").value.trim();
+    const selected = packageSelect.options[packageSelect.selectedIndex];
+    const packageName = packageSelect.value;
+    const price = parseInt(selected.getAttribute("data-price"));
+
+    if (!packageName) {
+      msg.className = "message error";
+      msg.textContent = "Zəhmət olmasa paket seçin.";
+      return;
+    }
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Göndərilir...";
+
+    const { error } = await supabaseClient.from("registrations").insert([{
+      first_name: firstName,
+      last_name: lastName,
+      phone: phone,
+      email: email,
+      package: packageName,
+      price: price
+    }]);
+
+    submitBtn.disabled = false;
+    submitBtn.textContent = "Qeydiyyatı tamamla";
+
+    if (error) {
+      msg.className = "message error";
+      msg.textContent = "Xəta baş verdi: " + error.message;
+      return;
+    }
+
+    msg.className = "message success";
+    form.reset();
+    priceBox.style.display = "none";
+
+    // 130 AZN (Yalnız konfrans) paketi üçün ödəniş linkinə yönləndirmə
+    const PAYMENT_LINK_130 = "https://cb.birbank.business/pay/4fb9f319e6ab4dd6af2c6d2d8919b7b8";
+
+    if (packageName === "Yalnız konfrans") {
+      msg.textContent = "Qeydiyyatınız qeydə alındı! Ödəniş səhifəsinə yönləndirilirsiniz...";
+      setTimeout(() => {
+        window.location.href = PAYMENT_LINK_130;
+      }, 1500);
+    } else {
+      msg.textContent = "Qeydiyyatınız uğurla tamamlandı! Təşəkkür edirik.";
+    }
+  });
+</script>
+
+</body>
+</html>
