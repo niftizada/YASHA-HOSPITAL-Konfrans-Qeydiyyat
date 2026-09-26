@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Panel — Konfrans Qeydiyyatı</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    background: #f2f4f7;
+    margin: 0;
+    padding: 16px;
+  }
+  .container { max-width: 1000px; margin: 0 auto; }
+
+  /* Login qutusu */
+  #loginBox {
+    max-width: 360px;
+    margin: 80px auto;
+    background: #fff;
+    padding: 28px;
+    border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  }
+  #loginBox h2 { margin-top:0; font-size:18px; }
+  #loginBox input {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #d0d5dd;
+    border-radius: 10px;
+    font-size: 15px;
+    margin-bottom: 12px;
+  }
+  #loginBox button {
+    width: 100%;
+    padding: 12px;
+    background: #6941c6;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  #loginError { color:#b42318; font-size:13px; display:none; margin-bottom:10px; }
+
+  /* Panel */
+  #panel { display: none; }
+  h1 { font-size: 20px; margin-bottom: 4px; }
+  .top-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin: 16px 0;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .search-input {
+    flex: 1;
+    min-width: 200px;
+    padding: 10px 14px;
+    border: 1px solid #d0d5dd;
+    border-radius: 10px;
+    font-size: 14px;
+  }
+  .stats {
+    background: #f4f0fe;
+    color: #6941c6;
+    font-weight: 700;
+    padding: 10px 16px;
+    border-radius: 10px;
+    font-size: 14px;
+    white-space: nowrap;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #fff;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+  }
+  th, td {
+    padding: 12px 10px;
+    text-align: left;
+    font-size: 13px;
+    border-bottom: 1px solid #eaecf0;
+    white-space: nowrap;
+  }
+  th { background: #f9fafb; color: #475467; }
+  .del-btn {
+    background: #fef3f2;
+    color: #b42318;
+    border: 1px solid #fda29b;
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .table-wrap { overflow-x: auto; border-radius: 12px; }
+  .empty { text-align:center; padding: 30px; color: #667085; }
+  .refresh-btn {
+    padding: 10px 16px;
+    background: #fff;
+    border: 1px solid #d0d5dd;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 14px;
+  }
+</style>
+</head>
+<body>
+
+<div id="loginBox">
+  <h2>Admin Panelə Giriş</h2>
+  <div id="loginError">Şifrə yanlışdır.</div>
+  <input type="password" id="passInput" placeholder="Şifrəni daxil edin">
+  <button id="loginBtn">Daxil ol</button>
+</div>
+
+<div class="container" id="panel">
+  <h1>İştirakçılar</h1>
+  <div class="top-row">
+    <input type="text" class="search-input" id="searchInput" placeholder="Ad və ya soyada görə axtar...">
+    <div class="stats" id="statsBox">Cəmi: 0</div>
+    <button class="refresh-btn" id="refreshBtn">Yenilə</button>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Ad</th>
+          <th>Soyad</th>
+          <th>Telefon</th>
+          <th>E-mail</th>
+          <th>Paket</th>
+          <th>Qiymət</th>
+          <th>Tarix</th>
+          <th>Əməliyyat</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+    <div class="empty" id="emptyMsg" style="display:none;">Heç bir qeydiyyat tapılmadı.</div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+  // ---- SUPABASE QOŞULMASI ----
+  const SUPABASE_URL = "https://hygxxmgvegjwkrrqvqmg.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh5Z3h4bWd2ZWdqd2tycnF2cW1nIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA0MTEzODYsImV4cCI6MjEwNTk4NzM4Nn0.0_1jydvXlBr0_mZZ-ZP2uaXkcaKh1f_UYY9awQcASe8";
+  const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  // ---- SADƏ ŞİFRƏ QORUMASI ----
+  // DİQQƏT: Bu, yalnız görüntünü gizlədir, əsl təhlükəsizlik deyil.
+  const ADMIN_PASSWORD = "DƏYİŞ_MƏNİ_2026";
+
+  let allData = [];
+
+  document.getElementById("loginBtn").addEventListener("click", tryLogin);
+  document.getElementById("passInput").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") tryLogin();
+  });
+
+  function tryLogin() {
+    const val = document.getElementById("passInput").value;
+    if (val === ADMIN_PASSWORD) {
+      document.getElementById("loginBox").style.display = "none";
+      document.getElementById("panel").style.display = "block";
+      loadData();
+    } else {
+      document.getElementById("loginError").style.display = "block";
+    }
+  }
+
+  async function loadData() {
+    const { data, error } = await supabaseClient
+      .from("registrations")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      alert("Məlumat yüklənərkən xəta: " + error.message);
+      return;
+    }
+    allData = data;
+    renderTable(allData);
+  }
+
+  function renderTable(rows) {
+    const tbody = document.getElementById("tableBody");
+    const emptyMsg = document.getElementById("emptyMsg");
+    tbody.innerHTML = "";
+
+    document.getElementById("statsBox").textContent = "Cəmi: " + rows.length;
+
+    if (rows.length === 0) {
+      emptyMsg.style.display = "block";
+      return;
+    }
+    emptyMsg.style.display = "none";
+
+    rows.forEach(row => {
+      const tr = document.createElement("tr");
+      const date = new Date(row.created_at).toLocaleString("az-AZ");
+      tr.innerHTML = `
+        <td>${escapeHtml(row.first_name)}</td>
+        <td>${escapeHtml(row.last_name)}</td>
+        <td>${escapeHtml(row.phone)}</td>
+        <td>${escapeHtml(row.email)}</td>
+        <td>${escapeHtml(row.package)}</td>
+        <td>${row.price} AZN</td>
+        <td>${date}</td>
+        <td><button class="del-btn" data-id="${row.id}">Sil</button></td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    document.querySelectorAll(".del-btn").forEach(btn => {
+      btn.addEventListener("click", () => deleteRow(btn.getAttribute("data-id")));
+    });
+  }
+
+  function escapeHtml(str) {
+    if (!str) return "";
+    return str.replace(/[&<>"']/g, (m) => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+    }[m]));
+  }
+
+  async function deleteRow(id) {
+    if (!confirm("Bu qeydiyyatı silmək istədiyinizə əminsiniz?")) return;
+    const { error } = await supabaseClient.from("registrations").delete().eq("id", id);
+    if (error) {
+      alert("Silinərkən xəta: " + error.message);
+      return;
+    }
+    loadData();
+  }
+
+  document.getElementById("searchInput").addEventListener("input", (e) => {
+    const q = e.target.value.toLowerCase().trim();
+    const filtered = allData.filter(row =>
+      row.first_name.toLowerCase().includes(q) ||
+      row.last_name.toLowerCase().includes(q)
+    );
+    renderTable(filtered);
+  });
+
+  document.getElementById("refreshBtn").addEventListener("click", loadData);
+</script>
+
+</body>
+</html>
